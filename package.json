@@ -1,0 +1,30 @@
+{
+  "name": "techno-campgain",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Techno Campgain — سامانه طراحی و مدیریت کمپین‌های فروش توسن تکنو (PWA)",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/serve.mjs",
+    "test": "node --import tsx --test tests/engine.test.ts tests/commands.test.ts tests/contract.test.ts",
+    "test:e2e": "node tests/e2e.mjs",
+    "typecheck": "tsc --noEmit",
+    "dev:server": "tsx server/reference-server.ts",
+    "check": "npm run typecheck && npm test && npm run build",
+    "build:root": "ROOT_COPY=1 node scripts/build.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "esbuild": "^0.28.0",
+    "playwright": "^1.63.0",
+    "tsx": "^4.23.0",
+    "typescript": "^6.0.0"
+  }
+}
