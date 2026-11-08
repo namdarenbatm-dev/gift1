@@ -24,181 +24,32 @@ export function App({ repo, volatile }: { repo: Repository; volatile: boolean })
   );
 }
 
-type TcSession = { user: { id: string; email?: string } };
-type TcProfile = { id: string; full_name: string | null; role: string; is_active: boolean; broker_id: string | null };
-type TcAuthClient = {
-  auth: {
-    getSession(): Promise<{ data: { session: TcSession | null }; error: { message: string } | null }>;
-    onAuthStateChange(callback: (event: string, session: TcSession | null) => void): { data: { subscription: { unsubscribe(): void } } };
-    signInWithPassword(credentials: { email: string; password: string }): Promise<{ data: { session: TcSession | null }; error: { message: string } | null }>;
-    signOut(): Promise<{ error: { message: string } | null }>;
-  };
-  from(table: string): {
-    select(columns: string): {
-      eq(column: string, value: string): {
-        maybeSingle(): Promise<{ data: TcProfile | null; error: { message: string } | null }>;
-      };
-    };
-  };
-};
-declare global {
-  interface Window {
-    supabase?: { createClient(url: string, key: string): TcAuthClient };
-    SNI_SUPABASE_CONFIG?: { url: string; publishableKey: string };
-    __tcAuthClient?: TcAuthClient;
-  }
-}
-
 function Root() {
-  const [splashDone, setSplashDone] = useState(false);
-  const [authState, setAuthState] = useState<'checking' | 'signedOut' | 'ready' | 'blocked'>('checking');
-  const [identity, setIdentity] = useState<{ email: string; fullName: string; role: string } | null>(null);
-  const [authError, setAuthError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [screen, setScreen] = useState<Screen>({ name: 'splash' });
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setSplashDone(true), SPLASH_MS);
-    return () => window.clearTimeout(timer);
-  }, []);
+    if (screen.name !== 'splash') return;
+    const t = window.setTimeout(() => setScreen({ name: 'gate' }), SPLASH_MS);
+    return () => window.clearTimeout(t);
+  }, [screen.name]);
 
-  useEffect(() => {
-    const cfg = window.SNI_SUPABASE_CONFIG;
-    if (!cfg || !window.supabase?.createClient) {
-      setAuthError('تنظیمات اتصال یکپارچه در دسترس نیست. صفحه را دوباره بارگذاری کنید.');
-      setAuthState('blocked');
-      return;
-    }
-    const client = window.supabase.createClient(cfg.url, cfg.publishableKey);
-    window.__tcAuthClient = client;
-    let active = true;
-    let sequence = 0;
-
-    const acceptSession = async (session: TcSession | null) => {
-      const current = ++sequence;
-      if (!session) {
-        if (!active || current !== sequence) return;
-        setIdentity(null);
-        setAuthError('');
-        setAuthState('signedOut');
-        return;
-      }
-      const { data, error } = await client
-        .from('profiles')
-        .select('id,full_name,role,is_active,broker_id')
-        .eq('id', session.user.id)
-        .maybeSingle();
-      if (!active || current !== sequence) return;
-      if (error || !data || !data.is_active) {
-        setIdentity(null);
-        setAuthError(error?.message || 'حساب کاربری فعال در SNI CRM پیدا نشد.');
-        setAuthState('blocked');
-        return;
-      }
-      // The current campaign pilot stores data locally and has no broker-to-agent identity map.
-      // Only the verified super-admin profile is allowed into its management workspace.
-      if (data.role !== 'super_admin') {
-        setIdentity(null);
-        setAuthError('حساب شما احراز هویت شد، اما دسترسی پنل مدیریت کمپین فعلاً فقط برای مدیر کل سامانه فعال است.');
-        setAuthState('blocked');
-        return;
-      }
-      setIdentity({
-        email: session.user.email || '',
-        fullName: data.full_name || session.user.email || 'مدیر سامانه',
-        role: data.role,
-      });
-      setAuthError('');
-      setAuthState('ready');
-    };
-
-    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
-      void acceptSession(session);
-    });
-    void client.auth.getSession().then(({ data, error }) => {
-      if (error) {
-        setAuthError('بررسی نشست ورود ناموفق بود: ' + error.message);
-        setAuthState('blocked');
-      } else {
-        void acceptSession(data.session);
-      }
-    });
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const signIn = async (email: string, password: string) => {
-    const client = window.__tcAuthClient;
-    if (!client) {
-      setAuthError('اتصال احراز هویت برقرار نیست. صفحه را دوباره بارگذاری کنید.');
-      return;
-    }
-    setBusy(true);
-    setAuthError('');
-    const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
-    setBusy(false);
-    if (error) setAuthError('ورود ناموفق بود: ' + error.message);
-    // Successful sign-in is picked up by onAuthStateChange and shares the same
-    // Supabase localStorage session used by SNI CRM on this GitHub Pages origin.
+  const exit = () => {
+    window.location.hash = '';
+    setScreen({ name: 'gate' });
   };
 
-  const signOut = async () => {
-    const client = window.__tcAuthClient;
-    if (client) {
-      const { error } = await client.auth.signOut();
-      if (error) setAuthError('خروج ناموفق بود: ' + error.message);
-    }
-  };
-
-  if (!splashDone) return <Splash />;
-  if (authState === 'checking') {
-    return <main className="gate"><div className="gate-inner"><h1>در حال بررسی نشست یکپارچه…</h1><p className="muted">در حال اتصال امن به حساب SNI CRM</p></div></main>;
+  switch (screen.name) {
+    case 'splash':
+      return <Splash />;
+    case 'gate':
+      return <Gate onAdmin={() => setScreen({ name: 'admin' })} onAgent={() => setScreen({ name: 'picker' })} />;
+    case 'picker':
+      return <AgentPicker onPick={(agentId) => setScreen({ name: 'agent', agentId })} onBack={() => setScreen({ name: 'gate' })} />;
+    case 'admin':
+      return <AdminApp onExit={exit} />;
+    case 'agent':
+      return <AgentApp agentId={screen.agentId} onExit={exit} />;
   }
-  if (authState !== 'ready' || !identity) {
-    return <AuthGate error={authError} busy={busy} onSubmit={signIn} onSignOut={signOut} />;
-  }
-
-  return (
-    <div>
-      <div style={{ position: 'sticky', top: 0, zIndex: 50, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 16px', background: '#00386e', color: '#fff', boxShadow: '0 2px 12px #001d3a22' }}>
-        <span style={{ fontSize: 13 }}>ورود یکپارچه · {identity.fullName} · {identity.email}</span>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <a href="../admin/crm/" style={{ color: '#fff', fontSize: 13, alignSelf: 'center' }}>بازگشت به SNI CRM</a>
-          <button className="btn btn-light btn-sm" onClick={signOut}>خروج از هر دو سامانه</button>
-        </div>
-      </div>
-      <AdminApp onExit={signOut} />
-    </div>
-  );
-}
-
-function AuthGate({ error, busy, onSubmit, onSignOut }: {
-  error: string;
-  busy: boolean;
-  onSubmit: (email: string, password: string) => Promise<void>;
-  onSignOut: () => Promise<void>;
-}) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  return (
-    <main className="gate">
-      <div className="gate-inner" style={{ maxWidth: 460 }}>
-        <img className="gate-logo" src="assets/tosan-techno-logo.png" alt="توسن تکنو" width="131" height="96" />
-        <h1>ورود یکپارچه به سامانه‌ها</h1>
-        <p className="muted">با همان حساب SNI CRM وارد شوید. اگر قبلاً در CRM وارد شده باشید، نیازی به ورود مجدد نیست.</p>
-        <form onSubmit={(e) => { e.preventDefault(); void onSubmit(email, password); }} style={{ display: 'grid', gap: 12, marginTop: 20, textAlign: 'right' }}>
-          <div className="field"><label htmlFor="tc-email">ایمیل حساب</label><input id="tc-email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-          <div className="field"><label htmlFor="tc-password">رمز عبور</label><input id="tc-password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-          {error && <p className="error" role="alert">{error}</p>}
-          <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? 'در حال ورود…' : 'ورود با حساب SNI CRM'}</button>
-          <a className="btn btn-ghost" href="../admin/crm/" style={{ textAlign: 'center', textDecoration: 'none' }}>رفتن به SNI CRM</a>
-          <button className="link" type="button" onClick={() => void onSignOut()}>خروج از نشست فعلی</button>
-        </form>
-        <p className="gate-note" style={{ marginTop: 18 }}>نشست ورود بین دو سامانه مشترک است؛ خروج از یکی، نشست هر دو را می‌بندد.</p>
-      </div>
-    </main>
-  );
 }
 
 function Splash() {
