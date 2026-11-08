@@ -188,8 +188,8 @@ function AuthGate({ error, busy, onSubmit, onSignOut }: {
         <h1>ورود یکپارچه به سامانه‌ها</h1>
         <p className="muted">با همان حساب SNI CRM وارد شوید. اگر قبلاً در CRM وارد شده باشید، نیازی به ورود مجدد نیست.</p>
         <form onSubmit={(e) => { e.preventDefault(); void onSubmit(email, password); }} style={{ display: 'grid', gap: 12, marginTop: 20, textAlign: 'right' }}>
-          <label className="field"><label htmlFor="tc-email">ایمیل حساب</label><input id="tc-email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-          <label className="field"><label htmlFor="tc-password">رمز عبور</label><input id="tc-password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+          <div className="field"><label htmlFor="tc-email">ایمیل حساب</label><input id="tc-email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <div className="field"><label htmlFor="tc-password">رمز عبور</label><input id="tc-password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></div>
           {error && <p className="error" role="alert">{error}</p>}
           <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? 'در حال ورود…' : 'ورود با حساب SNI CRM'}</button>
           <a className="btn btn-ghost" href="../admin/crm/" style={{ textAlign: 'center', textDecoration: 'none' }}>رفتن به SNI CRM</a>
