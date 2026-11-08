@@ -1,9 +1,9 @@
 /* Techno Campgain service worker. Cache name carries the build id, so every release is a clean swap. */
-const CACHE = 'techno-campgain-372754ef7a';
+const CACHE = 'techno-campgain-726075e3c9';
 const PRECACHE = [
   "./",
   "./app-GV5RLPZP.css",
-  "./app-RG4VFN2Y.js",
+  "./app-SWYNU7EC.js",
   "./assets/tosan-techno-logo.png",
   "./fonts/Yekan.ttf",
   "./icons/apple-touch-icon.png",
